@@ -38,9 +38,7 @@ models/*
 loras/*
 !loras/.gitkeep
 
-# Generated outputs
-outputs/*
-!outputs/.gitkeep
+# Generated outputs (removed — images go to R2)
 *.png
 *.jpg
 *.jpeg
