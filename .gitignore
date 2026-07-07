@@ -1,0 +1,67 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+.eggs/
+dist/
+build/
+*.egg
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Jupyter / IPython
+.ipynb_checkpoints/
+*.ipynb_checkpoints
+
+# Environment variables and secrets
+.env
+.env.*
+!.env.example
+
+# Model weights and checkpoints (large binary files)
+models/*
+!models/.gitkeep
+*.safetensors
+*.ckpt
+*.pt
+*.pth
+*.bin
+
+# LoRA files
+loras/*
+!loras/.gitkeep
+
+# Generated outputs
+outputs/*
+!outputs/.gitkeep
+*.png
+*.jpg
+*.jpeg
+*.webp
+*.gif
+
+# IDE and editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docker
+.docker/
+
+# Logs and temp files
+*.log
+*.tmp
+.cache/

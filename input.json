@@ -1,0 +1,31 @@
+{
+  "input": {
+    "model": "lucentxl_pony_by_klaabu",
+    "prompt": "score_9, score_8_up, score_7_up, rating_safe, portrait, natural lighting",
+    "negative": "score_6, score_5, score_4, (worst quality, low quality:1.4), (cgpainting, cartoon, anime, 3d, render, sketch, drawing, painting, watercolor:1.2), (plastic skin:1.2), flat color, airbrushed, digital art",
+    "scheduler": "dpm++_sde_karras",
+    "steps": 25,
+    "cfg": 5.5,
+    "width": 1024,
+    "height": 1024,
+    "seed": -1,
+    "loras": [
+      {
+        "path": "example-lora.safetensors",
+        "scale": 0.85
+      },
+      {
+        "path": "pony_realism_slider.safetensors",
+        "scale": 2.5
+      },
+      {
+        "path": "example-lora.safetensors",
+        "scale": 2.5
+      },
+      {
+        "path": "example-lora.safetensors",
+        "scale": 1.5
+      }
+    ]
+  }
+}

@@ -1,0 +1,13 @@
+# torch and torchaudio are already included in the base image (2.2.1)
+# we explicitly install torchvision in Dockerfile to ensure binary compatibility
+diffusers==0.29.2
+transformers==4.40.2
+accelerate==0.30.1
+safetensors==0.4.3
+omegaconf==2.3.0
+peft==0.11.1
+Pillow==10.3.0
+tqdm==4.66.4
+python-dotenv==1.0.1
+runpod==1.5.1
+requests==2.31.0
