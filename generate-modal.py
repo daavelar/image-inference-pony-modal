@@ -94,8 +94,8 @@ _volume = modal.Volume.from_name(VOL_NAME, create_if_missing=True)
 web_image = (
     modal.Image.debian_slim(python_version="3.11")
     .pip_install("fastapi>=0.115.0", "httpx>=0.27.0")
-    .add_local_dir(str(HERE / "app"), remote_path="/app/app")
     .env({"PYTHONPATH": "/app"})
+    .add_local_dir(str(HERE / "app"), remote_path="/app/app")
 )
 
 image = (
@@ -117,12 +117,6 @@ image = (
         "libgomp1",
     )
     .workdir("/app")
-    .add_local_dir(
-        str(HERE),
-        remote_path="/app",
-        ignore=_MOUNT_IGNORE,
-        copy=True,
-    )
     .pip_install(
         "fastapi>=0.115.0",
         "pydantic-settings>=2.0.0",
@@ -135,6 +129,12 @@ image = (
         "peft==0.11.1",
         "Pillow==10.3.0",
         "xformers",
+    )
+    .add_local_dir(
+        str(HERE),
+        remote_path="/app",
+        ignore=_MOUNT_IGNORE,
+        copy=True,
     )
 )
 
