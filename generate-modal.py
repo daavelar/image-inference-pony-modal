@@ -13,7 +13,7 @@ Secrets (Modal Secret name from ``MODAL_AWS_SECRET``):
     AWS_BUCKET, AWS_ENDPOINT, AWS_URL, AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY
     Optional: AWS_DEFAULT_REGION, AWS_USE_PATH_STYLE_ENDPOINT
 
-GPU: default ``L40S`` with ``A10`` fallback (override with ``MODAL_GPU``).
+GPU: default fallback chain ``A100`` → ``L40S`` → ``A10`` → ``L4`` (override with ``MODAL_GPU``).
 
 Populate the volume once from your machine:
     python scripts/upload-models-to-modal-volume.py
@@ -43,9 +43,37 @@ HERE = Path(__file__).resolve().parent
 
 VOL_NAME = os.environ.get("MODAL_VOLUME_NAME", "ponyinf")
 VOL_MOUNT = os.environ.get("MODAL_VOLUME_MOUNT", "/my_vol")
-_DEFAULT_GPU: list[str] = ["L40S", "A10"]
+# Strongest first; Modal tries each type in order when capacity is limited.
+_DEFAULT_GPU: list[str] = ["A100", "L40S", "A10", "L4"]
+GPU_COST_PER_SECOND: dict[str, float] = {
+    "A100": 0.000583,
+    "L40S": 0.000542,
+    "A10": 0.000306,
+    "L4": 0.000222,
+}
+
+
+def _parse_modal_gpu(raw: str) -> str | list[str]:
+    if not raw:
+        return _DEFAULT_GPU
+    parts = [p.strip() for p in raw.split(",") if p.strip()]
+    return parts[0] if len(parts) == 1 else parts
+
+
+def _primary_gpu_type(gpu: str | list[str]) -> str:
+    primary = gpu[0] if isinstance(gpu, list) else gpu
+    return primary.split(":")[0].strip().upper()
+
+
+def _gpu_cost_per_second(gpu_type: str) -> float:
+    key = gpu_type.upper().split(":")[0]
+    if key.startswith("A100"):
+        key = "A100"
+    return GPU_COST_PER_SECOND.get(key, GPU_COST_PER_SECOND["L40S"])
+
+
 MODAL_GPU_RAW = os.environ.get("MODAL_GPU", "").strip()
-INFERENCE_GPU: str | list[str] = MODAL_GPU_RAW if MODAL_GPU_RAW else _DEFAULT_GPU
+INFERENCE_GPU: str | list[str] = _parse_modal_gpu(MODAL_GPU_RAW)
 
 _MOUNT_IGNORE = [
     ".git/**/*",
@@ -116,6 +144,8 @@ def _configure_modal_env() -> None:
     os.environ["MODELS_DIR"] = str(Path(VOL_MOUNT) / "models")
     os.environ["LORAS_DIR"] = str(Path(VOL_MOUNT) / "loras")
     os.environ["REQUIRE_NETWORK_VOLUME"] = "1"
+    if not os.environ.get("COST_PER_SECOND", "").strip():
+        os.environ["COST_PER_SECOND"] = str(_gpu_cost_per_second(_primary_gpu_type(INFERENCE_GPU)))
 
     from app.config import get_settings
 

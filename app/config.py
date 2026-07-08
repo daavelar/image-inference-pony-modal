@@ -45,7 +45,7 @@ class Settings(BaseSettings):
 
     api_host: str = "0.0.0.0"
     api_port: int = 8003
-    cost_per_second: float = 0.000542  # Modal L40S ($0.000542/s); override via COST_PER_SECOND
+    cost_per_second: float = 0.000583  # Modal A100 40GB ($0.000583/s); override via COST_PER_SECOND
 
     @field_validator("aws_use_path_style_endpoint", "require_network_volume", mode="before")
     @classmethod

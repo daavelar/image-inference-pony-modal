@@ -200,7 +200,17 @@ uvicorn app.main:app --host 0.0.0.0 --port 8003
 | `MODAL_VOLUME_NAME` | `ponyinf` | Nome do volume Modal |
 | `MODAL_VOLUME_MOUNT` | `/my_vol` | Ponto de montagem |
 | `MODAL_AWS_SECRET` | — | Nome do secret R2 na Modal |
-| `MODAL_GPU` | `L40S,A10` | GPU do worker |
+| `MODAL_GPU` | `A100,L40S,A10,L4` | GPU do worker (fallback em ordem, mais forte primeiro) |
+| `COST_PER_SECOND` | conforme GPU primária | Custo estimado por segundo (override manual) |
+
+### GPUs disponíveis (ordem padrão de fallback)
+
+| GPU | Custo/s |
+|-----|---------|
+| Nvidia A100 40 GB | $0.000583 |
+| Nvidia L40S | $0.000542 |
+| Nvidia A10 | $0.000306 |
+| Nvidia L4 | $0.000222 |
 
 ## Skill para agentes
 
