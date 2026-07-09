@@ -68,7 +68,6 @@ def generate_image(
         raise InferenceError(f"S3 upload failed: {exc}", status_code=500) from exc
 
     duration_seconds = round(time.perf_counter() - started_at, 2)
-    cost = round(duration_seconds * settings.cost_per_second, 6)
     logger.info(
         "[inference] %s",
         json.dumps(
@@ -84,7 +83,6 @@ def generate_image(
                 "seed": used_seed,
                 "loras": [{"path": path, "scale": scale} for path, scale in normalized_loras],
                 "duration_seconds": duration_seconds,
-                "cost": cost,
                 "key": key,
             },
             ensure_ascii=False,
@@ -95,7 +93,7 @@ def generate_image(
         key=key,
         seed=used_seed,
         duration_seconds=duration_seconds,
-        cost=cost,
+        cost=0.0,
     )
 
 

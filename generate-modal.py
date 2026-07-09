@@ -15,6 +15,11 @@ Secrets (Modal Secret name from ``MODAL_AWS_SECRET``):
 
 GPU: default fallback chain ``A100`` → ``L40S`` → ``A10`` → ``L4`` (override with ``MODAL_GPU``).
 
+Cost: each job returns ``cost`` (USD) estimated from container wall time using
+Modal list prices for the detected GPU plus CPU/memory. Tune with
+``MODAL_TAIL_IDLE_SECONDS``, ``MODAL_CPU_CORES``, ``MODAL_MEMORY_GIB``,
+``MODAL_REGION_MULTIPLIER``.
+
 Populate the volume once from your machine:
     python scripts/upload-models-to-modal-volume.py
     python scripts/upload-loras-to-modal-volume.py
@@ -145,7 +150,9 @@ def _configure_modal_env() -> None:
     os.environ["LORAS_DIR"] = str(Path(VOL_MOUNT) / "loras")
     os.environ["REQUIRE_NETWORK_VOLUME"] = "1"
     if not os.environ.get("COST_PER_SECOND", "").strip():
-        os.environ["COST_PER_SECOND"] = str(_gpu_cost_per_second(_primary_gpu_type(INFERENCE_GPU)))
+        from app.modal_billing import detect_gpu_cost_per_second
+
+        os.environ["COST_PER_SECOND"] = str(detect_gpu_cost_per_second())
 
     from app.config import get_settings
 
@@ -278,19 +285,39 @@ app = modal.App("pony-modal")
 class PonyWorker:
     @modal.enter()
     def bootstrap(self):
+        from app.modal_billing import ContainerCostTracker, detect_gpu_cost_per_second, get_gpu_name
+
+        self._cost_tracker = ContainerCostTracker.from_env(scaledown_window=300)
+        boot_started = self._cost_tracker.on_boot_start()
+
         _configure_modal_env()
         from app.config import get_settings
         from app.pony_pipeline import validate_storage_paths
 
+        gpu_name = get_gpu_name()
+        cost_per_second = detect_gpu_cost_per_second()
+        os.environ["COST_PER_SECOND"] = str(cost_per_second)
+
         self.settings = get_settings()
         validate_storage_paths(self.settings)
-        print("[boot] ready.", flush=True)
+        self._cost_tracker.on_boot_complete(boot_started)
+        print(
+            f"[boot] gpu={gpu_name or 'unknown'} cost_per_second={cost_per_second} "
+            f"bootstrap_seconds={self._cost_tracker._bootstrap_seconds:.1f}",
+            flush=True,
+        )
 
     @modal.method()
     def run_job(self, payload: dict) -> dict:
         from app.inference import generate_from_payload
+        from app.modal_billing import run_with_billing
 
-        return generate_from_payload(self.settings, payload)
+        return run_with_billing(
+            self._cost_tracker,
+            generate_from_payload,
+            self.settings,
+            payload,
+        )
 
 
 @app.function(
