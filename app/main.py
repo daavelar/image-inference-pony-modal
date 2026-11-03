@@ -43,6 +43,9 @@ def generate(
             height=request.height,
             seed=request.seed,
             loras=[LoraSpec(path=lora.path, scale=lora.scale) for lora in request.loras],
+            style_loras=request.style_loras,
+            ip_adapter=request.ip_adapter,
+            face_detailer=request.face_detailer,
         )
     except InferenceError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc

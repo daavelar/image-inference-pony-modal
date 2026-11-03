@@ -3,7 +3,14 @@
 Pony SDXL image inference on Modal — HTTP + GPU worker.
 
 Job payload (flat JSON, no "input" wrapper):
-    {"prompt", "model"?, "negative"?, "scheduler"?, "steps"?, "cfg"?, "width"?, "height"?, "seed"?, "loras"?}
+    {"prompt", "model"?, "negative"?, "scheduler"?, "steps"?, "cfg"?, "width"?, "height"?, "seed"?, "loras"?,
+     "style_loras"?: true | {"preset_a"|"preset_b"|"realism": weight (default 1.0)},
+     "ip_adapter"?: {"image": b64, "weight": 0.4, "model": "plus_face"|"plus"},
+     "face_detailer"?: {"faces": [{"image": b64, "weight": 0.4}, ...] (left->right),
+                        "denoise": 0.4, "steps": 20, "padding": 1.8, "confidence": 0.3,
+                        "base_image"?: b64}}  # expression-variant mode: skip txt2img, faces[i].prompt = expression;
+                                              # only the feathered face masks are repainted, rest stays pixel-identical
+    Extra volume assets: <mount>/ipadapter/{image_encoder,sdxl_models}/, <mount>/detectors/face_yolov8m.pt
 
 Storage: mount a Modal Volume (default ``ponyinf``) with:
     <mount>/models/<model>.safetensors
@@ -135,6 +142,7 @@ image = (
         "Pillow==10.3.0",
         "xformers",
     )
+    .pip_install("ultralytics==8.2.103")  # bbox face detector for face_detailer
     .add_local_dir(
         str(HERE),
         remote_path="/app",

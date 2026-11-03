@@ -5,6 +5,7 @@ import logging
 import random
 import time
 
+from app import ip_face
 from app.config import Settings
 from app.pony_pipeline import PipelineError, run_inference
 from app.schemas import GenerateResponse, LoraSpec
@@ -32,8 +33,15 @@ def generate_image(
     height: int | None = None,
     seed: int | None = None,
     loras: list[LoraSpec] | None = None,
+    style_loras=None,
+    ip_adapter: dict | None = None,
+    face_detailer: dict | None = None,
 ) -> GenerateResponse:
     normalized_loras = [(lora.path, lora.scale) for lora in (loras or [])]
+    try:
+        normalized_loras += ip_face.style_lora_list(style_loras)
+    except (ip_face.FaceError, TypeError, ValueError) as exc:
+        raise InferenceError(str(exc), status_code=422) from exc
 
     resolved_model = model or settings.default_model
     resolved_negative = negative_prompt or settings.default_negative_prompt
@@ -58,6 +66,8 @@ def generate_image(
             height=resolved_height,
             seed=resolved_seed,
             loras=normalized_loras,
+            ip_adapter=ip_adapter,
+            face_detailer=face_detailer,
         )
     except PipelineError as exc:
         raise InferenceError(str(exc), status_code=exc.status_code) from exc
@@ -82,6 +92,8 @@ def generate_image(
                 "height": resolved_height,
                 "seed": used_seed,
                 "loras": [{"path": path, "scale": scale} for path, scale in normalized_loras],
+                "ip_adapter": {k: v for k, v in (ip_adapter or {}).items() if k != "image"} or None,
+                "face_detailer_faces": len((face_detailer or {}).get("faces", [])) if face_detailer else None,
                 "duration_seconds": duration_seconds,
                 "key": key,
             },
@@ -121,6 +133,18 @@ def generate_from_payload(settings: Settings, payload: dict) -> dict:
             loras.append(LoraSpec(path=path.strip(), scale=float(scale)))
         except Exception as exc:
             return {"error": f"invalid lora entry: {exc}"}
+
+    # extra_loras: [{filename, weight}] -- arbitrary volume LoRAs; slider weights > 1 (or < 0) allowed.
+    extra_raw = payload.get("extra_loras") or []
+    if not isinstance(extra_raw, list):
+        return {"error": "extra_loras must be an array"}
+    for item in extra_raw:
+        if not isinstance(item, dict) or not isinstance(item.get("filename"), str):
+            return {"error": "each extra_lora must be an object with filename and optional weight"}
+        try:
+            loras.append(LoraSpec(path=item["filename"].strip(), scale=float(item.get("weight", 1.0))))
+        except Exception as exc:
+            return {"error": f"invalid extra_lora entry: {exc}"}
 
     model = payload.get("model")
     if model is not None and not isinstance(model, str):
@@ -182,6 +206,9 @@ def generate_from_payload(settings: Settings, payload: dict) -> dict:
             height=height,
             seed=seed,
             loras=loras,
+            style_loras=payload.get("style_loras"),
+            ip_adapter=payload.get("ip_adapter") or None,
+            face_detailer=payload.get("face_detailer") or None,
         )
         return result.model_dump()
     except InferenceError as exc:

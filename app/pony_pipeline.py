@@ -19,6 +19,7 @@ if not hasattr(torch, "xpu"):
     sys.modules["torch.xpu"] = torch.xpu
 
 from diffusers import (  # noqa: E402
+    StableDiffusionXLInpaintPipeline,
     DDIMScheduler,
     DPMSolverMultistepScheduler,
     EulerAncestralDiscreteScheduler,
@@ -28,6 +29,7 @@ from diffusers import (  # noqa: E402
 )
 
 from app.config import Settings  # noqa: E402
+from app import ip_face  # noqa: E402
 
 warnings.filterwarnings("ignore", message=".*Already found a `peft_config` attribute.*")
 
@@ -180,6 +182,8 @@ def run_inference(
     height: int,
     seed: int,
     loras: list[tuple[str, float]],
+    ip_adapter: dict | None = None,
+    face_detailer: dict | None = None,
 ) -> tuple[bytes, int]:
     if scheduler_name not in SCHEDULERS:
         raise PipelineError(
@@ -208,9 +212,29 @@ def run_inference(
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
     generator = torch.Generator(device=device).manual_seed(seed)
+    vol_root = (settings.models_dir or Path("/my_vol/models")).parent
+    ip_root = vol_root / "ipadapter"
 
     try:
+        extra = {}
+        if ip_adapter:
+            try:
+                ref = ip_face.decode_image(ip_adapter.get("image", ""))
+                ip_face.ensure_ip_adapter(pipe, ip_root, ip_adapter.get("model") or "plus_face")
+            except ip_face.FaceError as exc:
+                raise PipelineError(str(exc), status_code=422) from exc
+            pipe.set_ip_adapter_scale(float(ip_adapter.get("weight", 0.4)))
+            extra["ip_adapter_image"] = ref
+        else:  # IP-Adapter left loaded by a previous request would demand image_embeds
+            ip_face.disable_ip_adapter(pipe)
+        base_image = (face_detailer or {}).get("base_image")
         with torch.inference_mode():
+          if base_image:  # expression-variant mode: reuse a fixed frame, only faces change
+            try:
+                image = ip_face.decode_image(base_image)
+            except ip_face.FaceError as exc:
+                raise PipelineError(str(exc), status_code=422) from exc
+          else:
             image = pipe(
                 prompt=prompt,
                 negative_prompt=negative_prompt,
@@ -219,9 +243,60 @@ def run_inference(
                 width=width,
                 height=height,
                 generator=generator,
+                **extra,
             ).images[0]
+          if face_detailer:
+                fd = dict(face_detailer)
+                fd.pop("base_image", None)
+                face_specs = fd.get("faces", []) or []
+                # Per-face LoRA overrides: faces[i].loras = [{filename, weight}] (weight 0 disables a base LoRA).
+                key = lambda f: Path(str(f)).name.removesuffix(".safetensors")
+                name_by_file = {key(lp): adapter_names[i] for i, (lp, _w) in enumerate(loras)}
+                base_w = dict(zip(adapter_names, adapter_weights))
+                for spec in face_specs:
+                    for item in (spec or {}).get("loras") or []:
+                        fname = item.get("filename") or item.get("path")
+                        if key(fname) not in name_by_file:
+                            resolved = resolve_lora_path(settings, fname)
+                            name = f"face_adapter_{len(name_by_file)}"
+                            try:
+                                pipe.load_lora_weights(str(resolved), adapter_name=name)
+                            except Exception as exc:
+                                raise PipelineError(f"Failed to load lora {resolved.name}: {exc}", status_code=422) from exc
+                            name_by_file[key(fname)] = name
+                            adapter_names.append(name)
+                            base_w[name] = 0.0
+
+                def on_face(i: int) -> None:
+                    if not adapter_names:
+                        return
+                    w = dict(base_w)
+                    spec = face_specs[i] if i < len(face_specs) else {}
+                    for item in (spec or {}).get("loras") or []:
+                        w[name_by_file[key(item.get("filename") or item.get("path"))]] = float(item.get("weight", 1.0))
+                    pipe.set_adapters(list(w), adapter_weights=list(w.values()))
+
+                inpaint = StableDiffusionXLInpaintPipeline(**pipe.components)
+                try:
+                    image, n = ip_face.face_detail(
+                        image,
+                        inpaint_pipe=inpaint,
+                        ip_root=ip_root,
+                        detector_path=vol_root / "detectors" / fd.pop("detector", "face_yolov8m.pt"),
+                        faces=fd.pop("faces", []),
+                        prompt=fd.pop("prompt", None) or prompt,
+                        negative_prompt=negative_prompt,
+                        seed=seed,
+                        cfg=float(fd.pop("cfg", cfg)),
+                        generator_factory=lambda s: torch.Generator(device=device).manual_seed(s),
+                        on_face=on_face,
+                        **{k: (str(v) if k == "ip_model" else float(v) if k != "steps" else int(v)) for k, v in fd.items()},
+                    )
+                except (ip_face.FaceError, TypeError) as exc:
+                    raise PipelineError(f"face_detailer: {exc}", status_code=422) from exc
+                print(f"[face_detailer] faces_detailed={n}")
     finally:
-        if loras:
+        if adapter_names:
             pipe.unload_lora_weights()
 
     buffered = BytesIO()

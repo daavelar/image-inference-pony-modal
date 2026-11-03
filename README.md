@@ -23,6 +23,7 @@ O modelo base fica em cache na GPU entre requisições. LoRAs são carregadas po
 │   ├── config.py           # Settings (R2, paths, defaults Pony)
 │   ├── pony_pipeline.py    # Diffusers SDXL pipeline
 │   ├── inference.py        # Handler de geração + upload
+│   ├── ip_face.py          # IP-Adapter, style LoRAs e face detailer
 │   ├── storage.py          # Upload boto3 → R2
 │   ├── schemas.py          # Contratos request/response
 │   └── main.py             # FastAPI local (dev)
@@ -45,6 +46,9 @@ O modelo base fica em cache na GPU entre requisições. LoRAs são carregadas po
 |-------------------|----------|
 | `/my_vol/models/{nome}.safetensors` | Checkpoint SDXL/Pony |
 | `/my_vol/loras/` | Arquivos LoRA (`.safetensors`) |
+| `/my_vol/ipadapter/image_encoder/` | CLIP ViT-H (`config.json`, `model.safetensors`) |
+| `/my_vol/ipadapter/sdxl_models/` | `ip-adapter-plus-face_sdxl_vit-h.safetensors`, `ip-adapter-plus_sdxl_vit-h.safetensors` |
+| `/my_vol/detectors/face_yolov8m.pt` | Detector de rosto do face detailer |
 
 Modelo padrão: `untitledPony_b10` → `/my_vol/models/untitledPony_b10.safetensors`
 
@@ -109,6 +113,12 @@ Payload **flat** (sem wrapper `input`):
   "loras": [
     { "path": "pony-realism-slider.safetensors", "scale": 2.5 }
   ],
+  "style_loras": { "preset_a": 1.0, "preset_b": 1.0, "realism": 1.0 },
+  "ip_adapter": { "image": "<base64>", "weight": 0.4, "model": "plus_face" },
+  "face_detailer": {
+    "faces": [{ "image": "<base64>", "weight": 0.4 }],
+    "denoise": 0.4
+  },
   "callback_url": "https://your-app.example/api/webhooks/modal/image",
   "external_id": 123
 }
@@ -151,6 +161,9 @@ Veja `input.json` para um exemplo completo.
 | `width` / `height` | não | `1024` | Dimensões em pixels |
 | `seed` | não | aleatório | `-1` ou omitido = aleatório; retorna seed real usado |
 | `loras` | não | `[]` | Lista de `{ "path": "arquivo.safetensors", "scale": 1.0 }` |
+| `style_loras` | não | — | `true` aplica preset_a, preset_b e realism em 1.0. Objeto escolhe quais: `{ "preset_a": 1.0, "preset_b": null, "realism": 0.8 }` (`null` = 1.0) |
+| `ip_adapter` | não | — | `{ "image": "<base64>", "weight": 0.4, "model": "plus_face" }` ou `"plus"` |
+| `face_detailer` | não | — | Repinta rostos da esquerda para a direita. `faces[]` com `image` e `weight`. Opcionais: `denoise` (0.4), `steps` (20), `padding` (1.8), `confidence` (0.3). `base_image` pula o txt2img e só repinta as máscaras |
 
 ### Schedulers disponíveis
 
@@ -215,7 +228,7 @@ uvicorn app.main:app --host 0.0.0.0 --port 8003
 ## Skill para agentes
 
 ```
-.cursor/skills/generating-image-with-iiprs/
+.cursor/skills/generating-sdxl-with-modal/
 ├── SKILL.md
 └── reference.md
 ```

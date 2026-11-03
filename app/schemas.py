@@ -5,7 +5,7 @@ from pydantic import BaseModel, Field
 
 class LoraSpec(BaseModel):
     path: str
-    scale: float = Field(default=1.0, ge=0.0)
+    scale: float = Field(default=1.0, ge=-20.0, le=20.0)  # sliders may exceed 1 / go negative
 
 
 class GenerateRequest(BaseModel):
@@ -20,6 +20,9 @@ class GenerateRequest(BaseModel):
     height: int | None = Field(default=None, ge=64, le=2048)
     seed: int | None = None
     loras: list[LoraSpec] = Field(default_factory=list)
+    style_loras: bool | dict[str, float | None] | None = None  # preset_a/preset_b/realism, default weight 1.0
+    ip_adapter: dict | None = None  # {"image": b64, "weight": 0.4, "model": "plus_face"|"plus"}
+    face_detailer: dict | None = None  # {"faces": [{"image": b64, "weight": 0.4}, ...] left->right, "denoise": 0.4}
     callback_url: str | None = None
     external_id: int | str | None = None
 
