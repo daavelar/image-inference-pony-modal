@@ -20,7 +20,7 @@ class GenerateRequest(BaseModel):
     height: int | None = Field(default=None, ge=64, le=2048)
     seed: int | None = None
     loras: list[LoraSpec] = Field(default_factory=list)
-    style_loras: bool | dict[str, float | None] | None = None  # preset_a/preset_b/realism, default weight 1.0
+    style_loras: bool | dict[str, float | None] | None = None  # preset keys, default weight 1.0
     ip_adapter: dict | None = None  # {"image": b64, "weight": 0.4, "model": "plus_face"|"plus"}
     face_detailer: dict | None = None  # {"faces": [{"image": b64, "weight": 0.4}, ...] left->right, "denoise": 0.4}
     callback_url: str | None = None

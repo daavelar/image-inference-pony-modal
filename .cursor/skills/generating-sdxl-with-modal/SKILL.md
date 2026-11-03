@@ -76,7 +76,7 @@ Always prepend quality tags:
 score_9, score_8_up, score_7_up
 ```
 
-Add a rating tag when appropriate: `rating_safe`, `rating_safe`, `rating_safe`.
+Add a rating tag when appropriate: `rating_safe`.
 
 Include quality degradation tags in the negative prompt:
 

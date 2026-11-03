@@ -71,8 +71,7 @@ curl -X POST "${MODAL_PONY_HTTP_URL}/generate?blocking=true" \
     "height": 1024,
     "seed": 42,
     "loras": [
-      { "path": "pony-realism-slider.safetensors", "scale": 2.5 },
-      { "path": "example-lora.safetensors", "scale": 2.5 }
+      { "path": "example-lora.safetensors", "scale": 1.0 }
     ]
   }'
 ```

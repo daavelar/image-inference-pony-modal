@@ -111,9 +111,9 @@ Payload **flat** (sem wrapper `input`):
   "height": 1024,
   "seed": -1,
   "loras": [
-    { "path": "pony-realism-slider.safetensors", "scale": 2.5 }
+    { "path": "example-lora.safetensors", "scale": 1.0 }
   ],
-  "style_loras": { "preset_a": 1.0, "preset_b": 1.0, "realism": 1.0 },
+  "style_loras": true,
   "ip_adapter": { "image": "<base64>", "weight": 0.4, "model": "plus_face" },
   "face_detailer": {
     "faces": [{ "image": "<base64>", "weight": 0.4 }],
@@ -161,7 +161,7 @@ Veja `input.json` para um exemplo completo.
 | `width` / `height` | não | `1024` | Dimensões em pixels |
 | `seed` | não | aleatório | `-1` ou omitido = aleatório; retorna seed real usado |
 | `loras` | não | `[]` | Lista de `{ "path": "arquivo.safetensors", "scale": 1.0 }` |
-| `style_loras` | não | — | `true` aplica preset_a, preset_b e realism em 1.0. Objeto escolhe quais: `{ "preset_a": 1.0, "preset_b": null, "realism": 0.8 }` (`null` = 1.0) |
+| `style_loras` | não | — | `true` aplica os presets configurados em 1.0. Objeto escolhe a chave (`preset_a`, `preset_b`, `preset_c`) e o peso (`null` = 1.0). O arquivo de cada um vem de `STYLE_LORA_A`, `STYLE_LORA_B` e `STYLE_LORA_C` |
 | `ip_adapter` | não | — | `{ "image": "<base64>", "weight": 0.4, "model": "plus_face" }` ou `"plus"` |
 | `face_detailer` | não | — | Repinta rostos da esquerda para a direita. `faces[]` com `image` e `weight`. Opcionais: `denoise` (0.4), `steps` (20), `padding` (1.8), `confidence` (0.3). `base_image` pula o txt2img e só repinta as máscaras |
 

@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import base64
 import binascii
+import os
 import re
 from io import BytesIO
 from pathlib import Path
@@ -20,10 +21,11 @@ IP_MODELS = {
     "plus_face": "ip-adapter-plus-face_sdxl_vit-h.safetensors",
     "plus": "ip-adapter-plus_sdxl_vit-h.safetensors",
 }
-STYLE_LORAS = {
-    "preset_a": "example-lora.safetensors",
-    "preset_b": "example-lora.safetensors",
-    "realism": "pony-realism-slider.safetensors",
+# Filenames stay out of the repo. Set STYLE_LORA_A, STYLE_LORA_B, STYLE_LORA_C.
+_STYLE_LORA_ENV = {
+    "preset_a": "STYLE_LORA_A",
+    "preset_b": "STYLE_LORA_B",
+    "preset_c": "STYLE_LORA_C",
 }
 _DATA_URI = re.compile(r"^data:image/[\w+.-]+;base64,", re.IGNORECASE)
 
@@ -46,18 +48,22 @@ def decode_image(value: str) -> Image.Image:
 
 
 def style_lora_list(spec) -> list[tuple[str, float]]:
-    """``true`` -> all three at 1.0; dict -> given keys (null weight -> 1.0)."""
+    """``true`` -> every configured preset at 1.0; dict -> given keys (null weight -> 1.0)."""
     if not spec:
         return []
     if spec is True:
-        spec = {k: 1.0 for k in STYLE_LORAS}
+        spec = {k: 1.0 for k in _STYLE_LORA_ENV}
     if not isinstance(spec, dict):
         raise FaceError("style_loras must be true or an object")
     out = []
     for key, weight in spec.items():
-        if key not in STYLE_LORAS:
-            raise FaceError(f"Unknown style lora '{key}'. Valid: {', '.join(STYLE_LORAS)}")
-        out.append((STYLE_LORAS[key], 1.0 if weight is None else float(weight)))
+        env_name = _STYLE_LORA_ENV.get(key)
+        if env_name is None:
+            raise FaceError(f"Unknown style lora '{key}'. Valid: {', '.join(_STYLE_LORA_ENV)}")
+        filename = os.environ.get(env_name, "").strip()
+        if not filename:
+            raise FaceError(f"{env_name} is not set")
+        out.append((filename, 1.0 if weight is None else float(weight)))
     return out
 
 

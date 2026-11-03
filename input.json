@@ -9,16 +9,8 @@
   "height": 1024,
   "loras": [
     {
-      "path": "pony-realism-slider.safetensors",
-      "scale": 3
-    },
-    {
       "path": "example-lora.safetensors",
-      "scale": 3
-    },
-    {
-      "path": "example-lora.safetensors",
-      "scale": 1.5
+      "scale": 1.0
     }
   ]
 }

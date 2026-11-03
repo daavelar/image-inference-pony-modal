@@ -4,7 +4,7 @@ Pony SDXL image inference on Modal — HTTP + GPU worker.
 
 Job payload (flat JSON, no "input" wrapper):
     {"prompt", "model"?, "negative"?, "scheduler"?, "steps"?, "cfg"?, "width"?, "height"?, "seed"?, "loras"?,
-     "style_loras"?: true | {"preset_a"|"preset_b"|"realism": weight (default 1.0)},
+     "style_loras"?: true | {preset: weight (default 1.0)},
      "ip_adapter"?: {"image": b64, "weight": 0.4, "model": "plus_face"|"plus"},
      "face_detailer"?: {"faces": [{"image": b64, "weight": 0.4}, ...] (left->right),
                         "denoise": 0.4, "steps": 20, "padding": 1.8, "confidence": 0.3,
